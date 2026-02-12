@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual envs
+.venv/
+backend/.venv/
+
+# Env files (keep frontend envs)
+backend/.env
+
+# OS files
+.DS_Store
+Thumbs.db
