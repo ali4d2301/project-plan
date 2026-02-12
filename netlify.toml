@@ -4,7 +4,7 @@ command = "npm run build"
 publish = "dist"
 
 [build.environment]
-VITE_API_BASE = "https://YOUR-RENDER-SERVICE.onrender.com"
+VITE_API_BASE = "https://project-plan.onrender.com"
 
 [[redirects]]
 from = "/*"
