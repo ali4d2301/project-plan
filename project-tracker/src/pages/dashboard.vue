@@ -95,6 +95,7 @@
           :end="microPeriod.end"
           :entites="entites"
           :statuts="statuts"
+          :colorStatut="true"
           :columns="[
             { key: 'id', label: 'ID' },
             { key: 'entites', label: 'Entités' },

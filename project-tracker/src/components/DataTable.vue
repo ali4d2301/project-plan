@@ -27,7 +27,16 @@
         <tbody>
           <tr v-for="(r, i) in filteredRows" :key="r[idKey] ?? i">
             <td v-for="c in effectiveColumns" :key="c.key">
-              {{ formatCell(r, c.key) }}
+              <span
+                v-if="props.colorStatut && c.key === props.statutKey"
+                class="status-chip"
+                :class="statusClass(r?.[c.key])"
+              >
+                {{ formatCell(r, c.key) }}
+              </span>
+              <template v-else>
+                {{ formatCell(r, c.key) }}
+              </template>
             </td>
           </tr>
         </tbody>
@@ -56,6 +65,9 @@ const props = defineProps({
   // ✅ filtres front (multi-select)
   entites: { type: Array, default: () => ["ALL"] },
   statuts: { type: Array, default: () => ["ALL"] },
+
+  // ✅ colorer la colonne Statut selon la légende
+  colorStatut: { type: Boolean, default: false },
 
   // ✅ noms des colonnes à filtrer dans la table (au cas où ça diffère)
   entiteKey: { type: String, default: "entites" },
@@ -217,6 +229,21 @@ function formatCell(row, key) {
   return String(v)
 }
 
+function normalizeStatus(s) {
+  const v = String(s || "").trim().toLowerCase()
+  return v.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+}
+
+function statusClass(v) {
+  const s = normalizeStatus(v)
+  if (!s) return "status--unknown"
+  if (s.includes("non demar")) return "status--not-started"
+  if (s.includes("en cours")) return "status--in-progress"
+  if (s.includes("non realise")) return "status--not-done"
+  if (s.includes("realise")) return "status--done"
+  return "status--unknown"
+}
+
 onMounted(() => {
   if (props.autoLoad) load()
   ensureColumnWidths()
@@ -304,6 +331,24 @@ watch(effectiveColumns, () => {
   margin: 8px 0 0;
   color: #b00020;
 }
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1.2;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.status--not-started { color: #1d4ed8; background: rgba(37, 99, 235, 0.12); border-color: rgba(37, 99, 235, 0.25); }
+.status--in-progress { color: #374151; background: rgba(107, 114, 128, 0.12); border-color: rgba(107, 114, 128, 0.25); }
+.status--done { color: #15803d; background: rgba(22, 163, 74, 0.12); border-color: rgba(22, 163, 74, 0.25); }
+.status--not-done { color: #b91c1c; background: rgba(220, 38, 38, 0.12); border-color: rgba(220, 38, 38, 0.25); }
+.status--unknown { color: #334155; background: rgba(148, 163, 184, 0.12); border-color: rgba(148, 163, 184, 0.25); }
 
 @media (max-width: 720px) {
   .api-table { padding: 10px; }
