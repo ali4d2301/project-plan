@@ -323,7 +323,7 @@ onBeforeUnmount(() => {
   border-radius: 9px;
   font-size: 13px;
 }
-.chip__text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+.chip__text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px; }
 .chip__x {
   border: none;
   background: transparent;
@@ -408,7 +408,7 @@ onBeforeUnmount(() => {
 .ms__error { color: #c62828; font-size: 12px; margin-top: 2px; }
 
 @media (max-width: 640px) {
-  .chip__text { max-width: 120px; }
+  .chip__text { max-width: 220px; }
   .ms__dropdown { max-height: 60vh; }
   .ms__control { padding: 8px 10px; }
 }

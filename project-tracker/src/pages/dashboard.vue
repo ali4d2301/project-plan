@@ -365,7 +365,7 @@ import DataTable from '../components/DataTable.vue'
 .micro__filters {
   position: relative;
   z-index: 2;
-  grid-template-columns: 1.15fr 1fr 1fr auto auto;
+  grid-template-columns: 280px 380px 220px auto auto;
   align-items: end;
   gap: 18px;
   padding: 14px;
@@ -375,6 +375,7 @@ import DataTable from '../components/DataTable.vue'
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
   animation: micro-fade-up 420ms ease both;
 }
+.micro__filters > * { min-width: 0; }
 .micro__table {
   position: relative;
   z-index: 1;
@@ -446,6 +447,7 @@ import DataTable from '../components/DataTable.vue'
   background: linear-gradient(135deg, #2563eb, #60a5fa);
   color: #f8fafc;
   font-weight: 700;
+  font-size: 14px;
   letter-spacing: 0.01em;
   box-shadow: 0 8px 18px rgba(37, 99, 235, 0.25);
   cursor: pointer;
@@ -473,6 +475,7 @@ import DataTable from '../components/DataTable.vue'
   background: #f8fbff;
   color: #1e3a8a;
   font-weight: 700;
+  font-size: 14px;
   letter-spacing: 0.01em;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
