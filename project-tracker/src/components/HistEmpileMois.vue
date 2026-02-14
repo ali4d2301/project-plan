@@ -49,6 +49,12 @@ const fullscreen = ref(false)
 async function toggleFullscreen() {
   const el = cardRef.value
   if (!el) return
+  if (!(document.fullscreenEnabled && el?.requestFullscreen)) {
+    fullscreen.value = !fullscreen.value
+    document.body.classList.toggle("fs-lock", fullscreen.value)
+    setTimeout(() => chart?.resize(), 50)
+    return
+  }
   try {
     if (document.fullscreenElement) {
       await document.exitFullscreen()
@@ -61,7 +67,10 @@ async function toggleFullscreen() {
 }
 
 function syncFullscreen() {
-  fullscreen.value = document.fullscreenElement === cardRef.value
+  const isFs = document.fullscreenElement === cardRef.value
+  fullscreen.value = isFs
+  if (isFs) document.body.classList.add("fs-lock")
+  else document.body.classList.remove("fs-lock")
   setTimeout(() => chart?.resize(), 50)
 }
 
@@ -201,6 +210,7 @@ watch(rows, render)
 onBeforeUnmount(() => {
   window.removeEventListener("resize", onResize)
   document.removeEventListener("fullscreenchange", syncFullscreen)
+  document.body.classList.remove("fs-lock")
   if (chart) {
     chart.dispose()
     chart = null
@@ -215,6 +225,9 @@ onBeforeUnmount(() => {
   border-radius: 10px;
 }
 .card.is-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
   height: 100%;
   width: 100%;
   border-radius: 0;
@@ -223,6 +236,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  background: #fff;
 }
 .card.is-fullscreen .chart {
   flex: 1;
@@ -271,5 +285,10 @@ onBeforeUnmount(() => {
 .fullscreen-btn:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+@media (max-width: 720px) {
+  .top { flex-direction: column; align-items: flex-start; }
+  .chart { height: 240px; }
 }
 </style>

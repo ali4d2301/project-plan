@@ -245,6 +245,7 @@ watch(effectiveColumns, () => {
   border-radius: 10px;
   border: 1px solid #eee;
   max-height: 460px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .api-table__table {
@@ -302,5 +303,18 @@ watch(effectiveColumns, () => {
 .api-table__error {
   margin: 8px 0 0;
   color: #b00020;
+}
+
+@media (max-width: 720px) {
+  .api-table { padding: 10px; }
+  .api-table__wrap { max-height: 60vh; }
+  .api-table__table {
+    min-width: 600px;
+    font-size: 12px;
+  }
+  .api-table__table th,
+  .api-table__table td {
+    padding: 8px 10px;
+  }
 }
 </style>

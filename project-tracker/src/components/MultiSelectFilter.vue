@@ -268,7 +268,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.ms { display: grid; gap: 6px; position: relative; width: auto; height: auto; }
+.ms { display: grid; gap: 6px; position: relative; width: 100%; height: auto; }
 .ms__label { font-weight: 600; font-size: 13px; opacity: 0.9; }
 
 .ms__control {
@@ -284,6 +284,8 @@ onBeforeUnmount(() => {
   background: #fff;
   cursor: pointer;
   transition: box-shadow .15s, border-color .15s;
+  width: 100%;
+  box-sizing: border-box;
 }
 .ms__control:hover { border-color: #b6c0cb; }
 .ms__control.is-open {
@@ -295,7 +297,7 @@ onBeforeUnmount(() => {
   cursor: not-allowed;
 }
 
-.ms__chips { display: flex; flex-wrap: wrap; gap: 3px; flex: 1; }
+.ms__chips { display: flex; flex-wrap: wrap; gap: 3px; flex: 1; min-width: 0; }
 .ms__placeholder { opacity: .6; font-size: 14px; padding-left: 2px; }
 
 .ms__right { display: flex; align-items: center; gap: 10px; padding-left: 10px; }
@@ -404,4 +406,10 @@ onBeforeUnmount(() => {
 
 .ms__empty { padding: 12px; opacity: .6; font-size: 13px; }
 .ms__error { color: #c62828; font-size: 12px; margin-top: 2px; }
+
+@media (max-width: 640px) {
+  .chip__text { max-width: 120px; }
+  .ms__dropdown { max-height: 60vh; }
+  .ms__control { padding: 8px 10px; }
+}
 </style>

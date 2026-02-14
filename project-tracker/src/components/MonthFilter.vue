@@ -1,9 +1,7 @@
 <template>
-  <div class="field">
+  <div class="month-filter">
     <label class="label">{{ label }}</label>
-  </div>
 
-  <div class="field">
     <select class="control" v-model="model" :disabled="loading || disabled">
       <option value="ALL">Tout</option>
 
@@ -11,9 +9,9 @@
         {{ m.label }}
       </option>
     </select>
-
-    <small v-if="error" class="error">{{ error }}</small>
   </div>
+
+  <small v-if="error" class="error">{{ error }}</small>
 </template>
 
 <script setup>
@@ -62,8 +60,30 @@ onMounted(loadMonths)
 </script>
 
 <style scoped>
-.field { display: grid; gap: 6px; }
+.month-filter {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
 .label { font-weight: 600; }
-.control { height: 36px; width: 250px; padding: 0 10px; border: 1px solid #ddd; border-radius: 8px; }
-.error { color: #b00020; }
+.control {
+  height: 36px;
+  width: 320px;
+  max-width: 100%;
+  padding: 0 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+.error { color: #b00020; display: block; margin-top: 6px; }
+
+@media (max-width: 640px) {
+  .month-filter {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .control { width: 100%; }
+}
 </style>

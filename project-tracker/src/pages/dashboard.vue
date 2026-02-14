@@ -163,6 +163,10 @@ import DataTable from '../components/DataTable.vue'
   const microTableSectionRef = ref(null)
   const microFullscreen = ref(false)
 
+  function canUseNativeFullscreen(el) {
+    return !!(document.fullscreenEnabled && el?.requestFullscreen)
+  }
+
   function exportMicro() {
     microTableRef.value?.exportToCsv?.("micro-planning")
   }
@@ -170,6 +174,11 @@ import DataTable from '../components/DataTable.vue'
   async function toggleMicroFullscreen() {
     const el = microTableSectionRef.value
     if (!el) return
+    if (!canUseNativeFullscreen(el)) {
+      microFullscreen.value = !microFullscreen.value
+      document.body.classList.toggle("fs-lock", microFullscreen.value)
+      return
+    }
     try {
       if (document.fullscreenElement) {
         await document.exitFullscreen()
@@ -183,7 +192,10 @@ import DataTable from '../components/DataTable.vue'
 
   function syncFullscreenState() {
     const el = microTableSectionRef.value
-    microFullscreen.value = !!document.fullscreenElement && document.fullscreenElement === el
+    const isFs = !!document.fullscreenElement && document.fullscreenElement === el
+    microFullscreen.value = isFs
+    if (isFs) document.body.classList.add("fs-lock")
+    else document.body.classList.remove("fs-lock")
   }
 
   onMounted(() => {
@@ -193,6 +205,7 @@ import DataTable from '../components/DataTable.vue'
 
   onBeforeUnmount(() => {
     document.removeEventListener("fullscreenchange", syncFullscreenState)
+    document.body.classList.remove("fs-lock")
   })
 
 </script>
@@ -239,6 +252,9 @@ import DataTable from '../components/DataTable.vue'
   gap:28px;
   align-items:flex-end;
   padding-bottom:6px;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width: thin;
 }
 .tab{
   background:transparent;
@@ -248,6 +264,7 @@ import DataTable from '../components/DataTable.vue'
   color:#64748b;
   border-bottom:3px solid transparent;
   font-size:18px;
+  white-space: nowrap;
 }
 .tab.active{
   color:#2563eb;
@@ -280,24 +297,27 @@ import DataTable from '../components/DataTable.vue'
   grid-template-columns: 1fr 1fr;
   gap:16px;
 }
+.grid-2 > * { min-width: 0; }
 .grid-3{
   display:grid;
   grid-template-columns: repeat(3, 1fr);
   gap:16px;
 }
+.grid-3 > * { min-width: 0; }
 
 .card{
   background:#fff;
   border:1px solid #e5e7eb;
   border-radius:14px;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+  min-width: 0;
 }
 .pad{ padding:16px; margin-top:10px; }
 
 .filter {
   display: flex;
-  justify-content: center; /* centre horizontalement */
-  align-items: center;     /* optionnel : centre aussi verticalement */
+  justify-content: center;
+  align-items: center;
 }
 
 /* Micro planning polish */
@@ -374,11 +394,48 @@ import DataTable from '../components/DataTable.vue'
   }
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 900px) {
   .micro__filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid-2 { grid-template-columns: 1fr; }
+  .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 640px) {
-  .micro__filters { grid-template-columns: 1fr; }
+  .micro__filters {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 10px;
+    align-items: stretch;
+  }
+  .grid-3 { grid-template-columns: 1fr; }
+  .filter { align-items: stretch; }
+  .micro__export,
+  .micro__fullscreen {
+    width: 100%;
+    justify-self: stretch;
+  }
+  .tabs { gap: 8px; padding-bottom: 2px; }
+  .tab { font-size: 13px; padding: 6px 2px; border-bottom-width: 2px; }
+  .page { padding: 6px 8px 12px; margin: 0; }
+  .page .dashboard-header {
+    position: static;
+    top: auto;
+    padding-top: 0;
+    padding-bottom: 4px;
+  }
+  .micro__table.is-fullscreen { padding: 12px; }
+}
+
+@media (max-width: 520px) {
+  .title-logo { height: 32px; }
+  .title { font-size: 22px; }
+  .tab { font-size: 13px; }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .page .dashboard-header {
+    position: static;
+    top: auto;
+  }
 }
 
 .micro__export {
@@ -434,6 +491,9 @@ import DataTable from '../components/DataTable.vue'
 }
 
 .micro__table.is-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
   width: 100%;
   height: 100%;
   background: #ffffff;
@@ -576,5 +636,3 @@ import DataTable from '../components/DataTable.vue'
 }
 
 </style>
-
-

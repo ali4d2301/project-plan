@@ -204,6 +204,11 @@ watch(url, () => {
 async function toggleGanttFullscreen() {
   const el = ganttRootRef.value
   if (!el) return
+  if (!(document.fullscreenEnabled && el?.requestFullscreen)) {
+    ganttFullscreen.value = !ganttFullscreen.value
+    document.body.classList.toggle("fs-lock", ganttFullscreen.value)
+    return
+  }
   try {
     if (document.fullscreenElement) {
       await document.exitFullscreen()
@@ -217,7 +222,10 @@ async function toggleGanttFullscreen() {
 
 function syncGanttFullscreen() {
   const el = ganttRootRef.value
-  ganttFullscreen.value = !!document.fullscreenElement && document.fullscreenElement === el
+  const isFs = !!document.fullscreenElement && document.fullscreenElement === el
+  ganttFullscreen.value = isFs
+  if (isFs) document.body.classList.add("fs-lock")
+  else document.body.classList.remove("fs-lock")
 }
 
 onMounted(() => {
@@ -227,6 +235,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener("fullscreenchange", syncGanttFullscreen)
+  document.body.classList.remove("fs-lock")
 })
 
 function parseDate(s) {
@@ -444,6 +453,9 @@ function hideTooltip() {
   overflow-y: visible;
 }
 .gantt.is-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
   height: 100%;
   width: 100%;
   padding: 12px;
@@ -457,6 +469,7 @@ function hideTooltip() {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
+.gantt__filters > * { min-width: 0; }
 
 .gantt__legend-bar {
   display: flex;
@@ -525,6 +538,9 @@ function hideTooltip() {
   border-radius: 12px;
   overflow-x: auto;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  overscroll-behavior: contain;
   max-height: 65vh;
   --gantt-timeline: 600px;
   width: 100%;
@@ -721,7 +737,7 @@ function hideTooltip() {
   text-align: right;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 900px) {
   .gantt__filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -729,9 +745,17 @@ function hideTooltip() {
 @media (max-width: 720px) {
   .gantt__filters {
     grid-template-columns: 1fr;
+    gap: 8px;
+    align-items: stretch;
   }
   .gantt {
     --gantt-left: 220px;
   }
+  .gantt__legend-bar { gap: 8px; }
+  .gantt__legend { gap: 10px; }
+  .gantt__legend-item { font-size: 12px; }
+  .gantt__board { max-height: 60vh; height: 60vh; }
+  .gantt__task-title { font-size: 13px; }
+  .gantt__task-meta { font-size: 11px; }
 }
 </style>

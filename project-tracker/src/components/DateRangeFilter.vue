@@ -15,9 +15,6 @@
         />
       </div>
 
-      <!-- <span class="sep">→</span> -->
-      <span class="sep">→</span>
-
       <div> <!-- Insérer class="field" pour avoir le "Du" au dessus-->
         <label>Au </label>
         <input
@@ -146,6 +143,8 @@ label { font-size: 14px; color: #555; } /* Différent de .label*/
   padding: 0 10px;
   border: 1px solid #ddd;
   border-radius: 8px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Harmoniser le texte dans les <input type="date"> (Chrome/Windows) */
@@ -158,6 +157,21 @@ label { font-size: 14px; color: #555; } /* Différent de .label*/
   -webkit-font-smoothing: antialiased;
 }
 
-.sep { opacity: 0.7; }
 .error { color: #b00020; }
+
+@media (max-width: 640px) {
+  label { font-size: 13px; }
+  .field { width: 100%; }
+  .row { flex-direction: column; align-items: center; gap: 6px; width: 100%; }
+  .row > div { display: grid; gap: 6px; width: 100%; max-width: 320px; }
+  .control { height: 32px; width: 100%; max-width: 100%; padding: 0 8px; font-size: 12px; }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .field { width: 100%; }
+  .row { flex-direction: column; align-items: center; gap: 6px; width: 100%; }
+  .row > div { display: grid; gap: 6px; width: 100%; max-width: 320px; }
+  .control { width: 100%; max-width: 100%; padding: 0 8px; font-size: 12px; }
+}
+
 </style>
