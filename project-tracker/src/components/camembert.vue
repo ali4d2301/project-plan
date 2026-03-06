@@ -18,6 +18,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch } from "vue"
 import * as echarts from "echarts"
+import { fetchWithRetry, getFetchErrorMessage } from "../utils/http"
 
 const props = defineProps({
   title: { type: String, default: "Répartition des niveaux d'exécution des tâches" },
@@ -72,11 +73,10 @@ async function load() {
   error.value = ""
   try {
     const url = `${apiBase()}${props.endpoint}`
-    const res = await fetch(url)
-    if (!res.ok) throw new Error(`API error: ${res.status}`)
+    const res = await fetchWithRetry(url)
     rows.value = await res.json()
   } catch (e) {
-    error.value = e?.message || "Erreur inconnue"
+    error.value = getFetchErrorMessage(e, "la repartition des niveaux d'execution des taches")
     rows.value = []
   } finally {
     loading.value = false

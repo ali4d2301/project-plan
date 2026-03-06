@@ -21,6 +21,7 @@
 <script setup>
 import * as echarts from "echarts"
 import { ref, onMounted, onBeforeUnmount, watch } from "vue"
+import { fetchWithRetry, getFetchErrorMessage } from "../utils/http"
 
 /* =======================
    Props & config API
@@ -178,13 +179,12 @@ async function load() {
 
   try {
     const url = `${apiBase()}${props.endpoint}`
-    const res = await fetch(url)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const res = await fetchWithRetry(url)
     const json = await res.json()
     rows.value = json.data || []
   } catch (e) {
     rows.value = []
-    error.value = e?.message || "Erreur de chargement"
+    error.value = getFetchErrorMessage(e, "la repartition des taches par mois")
   } finally {
     loading.value = false
   }

@@ -36,6 +36,7 @@
 
 <script setup>
 import { ref, watch, onMounted } from "vue"
+import { fetchWithRetry, getFetchErrorMessage } from "../utils/http"
 
 const props = defineProps({
   // ✅ valeurs par défaut configurables
@@ -104,15 +105,14 @@ async function loadBounds() {
 
   try {
     const url = `${apiBase()}${props.endpoint}`
-    const res = await fetch(url)
-    if (!res.ok) throw new Error()
+    const res = await fetchWithRetry(url)
 
     const data = await res.json()
 
     minDate.value = data?.min || ""
     maxDate.value = data?.max || ""
-  } catch {
-    error.value = "Erreur chargement dates"
+  } catch (e) {
+    error.value = getFetchErrorMessage(e, "les bornes de dates")
   } finally {
     loading.value = false
   }

@@ -80,6 +80,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch, onBeforeUnmount } from "vue"
+import { fetchWithRetry, getFetchErrorMessage } from "../utils/http"
 
 const ALL = "ALL"
 
@@ -229,8 +230,7 @@ async function load() {
   loading.value = true
   error.value = ""
   try {
-    const res = await fetch(url.value)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const res = await fetchWithRetry(url.value)
     const data = await res.json()
 
     // Supporte:
@@ -250,7 +250,7 @@ async function load() {
       options.value = []
     }
   } catch (e) {
-    error.value = "Impossible de charger la liste."
+    error.value = getFetchErrorMessage(e, "la liste de selection")
     options.value = []
   } finally {
     loading.value = false

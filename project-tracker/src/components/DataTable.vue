@@ -47,6 +47,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from "vue"
+import { fetchWithRetry, getFetchErrorMessage } from "../utils/http"
 
 const props = defineProps({
   title: { type: String, default: "" },
@@ -100,15 +101,14 @@ async function load() {
   loading.value = true
   error.value = ""
   try {
-    const res = await fetch(url.value)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const res = await fetchWithRetry(url.value)
     const data = await res.json()
 
     // On supporte: soit une liste, soit { items: [...] }
     const arr = Array.isArray(data) ? data : (data?.items ?? [])
     rows.value = arr
   } catch (e) {
-    error.value = e?.message || "Erreur lors du chargement"
+    error.value = getFetchErrorMessage(e, "les donnees du tableau")
     rows.value = []
   } finally {
     loading.value = false

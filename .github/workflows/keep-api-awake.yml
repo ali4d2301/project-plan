@@ -1,0 +1,29 @@
+name: Keep API Awake
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping-health:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        env:
+          DEFAULT_HEALTH_URL: "https://project-plan.onrender.com/health"
+          KEEPALIVE_HEALTH_URL: ${{ secrets.KEEPALIVE_HEALTH_URL }}
+        run: |
+          set -euo pipefail
+
+          URL="${KEEPALIVE_HEALTH_URL:-$DEFAULT_HEALTH_URL}"
+          echo "Pinging $URL"
+
+          STATUS_CODE=$(curl -sS -o response.json -w "%{http_code}" --max-time 20 "$URL" || true)
+          echo "HTTP status: $STATUS_CODE"
+          cat response.json || true
+
+          if [ "$STATUS_CODE" != "200" ]; then
+            echo "::error::Health check failed with HTTP $STATUS_CODE"
+            exit 1
+          fi

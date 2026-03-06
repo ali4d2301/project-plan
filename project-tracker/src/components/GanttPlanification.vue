@@ -145,6 +145,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue"
 import DateRangeFilter from "./DateRangeFilter.vue"
 import MultiSelectDropdown from "./MultiSelectFilter.vue"
+import { fetchWithRetry, getFetchErrorMessage } from "../utils/http"
 
 const period = ref({ start: "2025-10-15", end: "2026-02-28" })
 const entites = ref(["ALL"])
@@ -185,12 +186,11 @@ async function load() {
   loading.value = true
   error.value = ""
   try {
-    const res = await fetch(url.value)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const res = await fetchWithRetry(url.value)
     const data = await res.json()
     tasks.value = Array.isArray(data) ? data : (data?.data ?? [])
   } catch (e) {
-    error.value = "Erreur lors du chargement."
+    error.value = getFetchErrorMessage(e, "le diagramme de gantt")
     tasks.value = []
   } finally {
     loading.value = false

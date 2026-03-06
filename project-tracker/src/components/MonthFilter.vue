@@ -16,6 +16,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from "vue"
+import { fetchWithRetry, getFetchErrorMessage } from "../utils/http"
 
 const props = defineProps({
   modelValue: { type: String, default: "ALL" },
@@ -45,11 +46,10 @@ async function loadMonths() {
   error.value = ""
   try {
     const url = `${apiBase()}${props.endpoint}`
-    const res = await fetch(url)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const res = await fetchWithRetry(url)
     months.value = await res.json()
   } catch (e) {
-    error.value = "Erreur de chargement des mois"
+    error.value = getFetchErrorMessage(e, "la liste des mois")
     months.value = []
   } finally {
     loading.value = false

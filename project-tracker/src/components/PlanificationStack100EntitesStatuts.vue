@@ -17,6 +17,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch } from "vue"
 import * as echarts from "echarts"
+import { fetchWithRetry, getFetchErrorMessage } from "../utils/http"
 
 const props = defineProps({
   // "ALL" ou "YYYY-MM" (filtre global)
@@ -136,12 +137,11 @@ async function load() {
     : `${base}/api/planification/stack100-entites-statuts`
 
   try {
-    const res = await fetch(url)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const res = await fetchWithRetry(url)
     raw.value = await res.json()
     render()
   } catch (e) {
-    error.value = `Erreur de chargement: ${e.message || e}`
+    error.value = getFetchErrorMessage(e, "la repartition des statuts par entite")
   }
 }
 
