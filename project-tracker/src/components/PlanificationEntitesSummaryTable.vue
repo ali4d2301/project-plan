@@ -78,6 +78,18 @@ const loading = ref(false)
 const error = ref("")
 const rows = ref([])
 
+const ENTITE_DESCRIPTIONS = {
+  "Partenaires techniques": "Consortium",
+  "GTT": "Groupe technique",
+  "MEPS": "Ministere de la protection sociale",
+  "MSHPCMU": "Ministere de la sante",
+  "MSHPCMU / Partenaires techniques": "Responsabilite conjointe",
+  "MHSPCM / MEPS / Partenaires techniques": "Responsabilite conjointe",
+  "GTT / MEPS": "Responsabilite conjointe",
+  "GTT / MEPS / Partenaires techniques": "Responsabilite conjointe",
+  "MTND": "Min. Transition num.",
+}
+
 function parsePeriod(period) {
   if (!period || period === "ALL") return null
   const [ys, ms] = String(period).split("-")
@@ -94,15 +106,131 @@ function endpointUrl() {
   return `${base}/api/planification/entites-summary?year=${period.year}&month=${period.month}`
 }
 
+function stackEndpointUrl() {
+  const base = import.meta.env.VITE_API_BASE || ""
+  const period = parsePeriod(props.period)
+  if (!period) return `${base}/api/planification/stack100-entites-statuts`
+  return `${base}/api/planification/stack100-entites-statuts?year=${period.year}&month=${period.month}`
+}
+
+function normalizeText(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+}
+
+function statusBucket(statut) {
+  const normalized = normalizeText(statut)
+  if (normalized.includes("non realis")) return "non_realisees"
+  if (normalized.includes("non demarr")) return "non_dem"
+  if (normalized.includes("en cours")) return "en_cours"
+  if (normalized.includes("realis")) return "realisees"
+  return "autre"
+}
+
+function riskLabel(retard, realisees, enCours) {
+  if (retard >= 2) return "Eleve"
+  if (retard === 1) return "Modere"
+  if (realisees === 0 && enCours === 0) return "Attente"
+  return "Normal"
+}
+
+function riskLevel(label) {
+  if (label === "Eleve") return "high"
+  if (label === "Modere") return "medium"
+  if (label === "Attente") return "waiting"
+  return "normal"
+}
+
+function toNumber(value) {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : 0
+}
+
+function buildSummaryFromStack(stackRows) {
+  const byEntite = new Map()
+
+  for (const row of stackRows || []) {
+    const entite = String(row?.entite || "").trim()
+    if (!entite) continue
+    const count = toNumber(row?.nb)
+    if (count <= 0) continue
+
+    if (!byEntite.has(entite)) {
+      byEntite.set(entite, {
+        taches: 0,
+        realisees: 0,
+        en_cours: 0,
+        non_dem: 0,
+        retard: 0,
+      })
+    }
+
+    const item = byEntite.get(entite)
+    item.taches += count
+
+    const bucket = statusBucket(row?.statut)
+    if (bucket === "realisees") item.realisees += count
+    else if (bucket === "en_cours") item.en_cours += count
+    else if (bucket === "non_dem") item.non_dem += count
+    else if (bucket === "non_realisees") item.retard += count
+  }
+
+  const out = Array.from(byEntite.entries()).map(([entite, item]) => {
+    const completion = item.taches ? Math.round((item.realisees / item.taches) * 100) : 0
+    const risque = riskLabel(item.retard, item.realisees, item.en_cours)
+    return {
+      entite,
+      description: ENTITE_DESCRIPTIONS[entite] || "",
+      taches: item.taches,
+      completion,
+      realisees: item.realisees,
+      en_cours: item.en_cours,
+      non_dem: item.non_dem,
+      retard: item.retard,
+      risque,
+      risque_level: riskLevel(risque),
+    }
+  })
+
+  out.sort((a, b) => {
+    if (b.taches !== a.taches) return b.taches - a.taches
+    return a.entite.localeCompare(b.entite, "fr", { sensitivity: "base" })
+  })
+  return out
+}
+
+async function loadFromStackFallback() {
+  const res = await fetchWithRetry(stackEndpointUrl())
+  const payload = await res.json()
+  const list = Array.isArray(payload) ? payload : []
+  rows.value = buildSummaryFromStack(list)
+}
+
 async function load() {
   loading.value = true
   error.value = ""
   try {
     const res = await fetchWithRetry(endpointUrl())
-    rows.value = await res.json()
+    const payload = await res.json()
+    if (Array.isArray(payload)) rows.value = payload
+    else if (Array.isArray(payload?.data)) rows.value = payload.data
+    else rows.value = []
   } catch (e) {
-    error.value = getFetchErrorMessage(e, "le tableau de synthese par entite")
-    rows.value = []
+    if (e?.code === "HTTP" && Number(e?.status) === 404) {
+      try {
+        await loadFromStackFallback()
+        error.value = ""
+      } catch (fallbackError) {
+        error.value = getFetchErrorMessage(fallbackError, "le tableau de synthese par entite")
+        rows.value = []
+      }
+    } else {
+      error.value = getFetchErrorMessage(e, "le tableau de synthese par entite")
+      rows.value = []
+    }
   } finally {
     loading.value = false
   }
