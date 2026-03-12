@@ -30,13 +30,8 @@
             <hist-empile-mois/>
          </section>
 
-         <div class="filter">
-             <MonthFilter v-model="period" />
-         </div>
-
-         <section class="grid-2">
-            <planification-histogram-entites :period="period"/>
-            <PlanificationStack100EntitesStatuts :period="period" />
+         <section>
+            <PlanificationEntitesSummaryTable v-model:period="period" />
          </section>
          
     </div>
@@ -146,9 +141,7 @@ function changeTab(tab) {
 
 import Camembert from "../components/camembert.vue";
 import HistEmpileMois from "../components/HistEmpileMois.vue";
-import MonthFilter from "../components/MonthFilter.vue";
-import PlanificationHistogramEntites from "../components/PlanificationHistogramEntites.vue"
-import PlanificationStack100EntitesStatuts from "../components/PlanificationStack100EntitesStatuts.vue";
+import PlanificationEntitesSummaryTable from "../components/PlanificationEntitesSummaryTable.vue";
   const period = ref("ALL")
   watch(period, v => console.log("PARENT period =", v))
 
@@ -222,6 +215,7 @@ import DataTable from '../components/DataTable.vue'
   background:#f6f7fb;
   min-height:calc(100vh - 12px);
   box-sizing:border-box;
+  font-family: "Space Grotesk", "Segoe UI", Tahoma, sans-serif;
 }
 
 .title{

@@ -4,9 +4,62 @@ from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from db import get_db
+import unicodedata
 
 
 router = APIRouter(prefix="/api/planification", tags=["planification"])
+
+ENTITE_DESCRIPTIONS = {
+    "Partenaires techniques": "Consortium",
+    "GTT": "Groupe technique",
+    "MEPS": "Ministere de la protection sociale",
+    "MSHPCMU": "Ministere de la sante",
+    "MSHPCMU / Partenaires techniques": "Responsabilite conjointe",
+    "MHSPCM / MEPS / Partenaires techniques": "Responsabilite conjointe",
+    "GTT / MEPS": "Responsabilite conjointe",
+    "GTT / MEPS / Partenaires techniques": "Responsabilite conjointe",
+    "MTND": "Min. Transition num.",
+}
+
+
+def _normalize_text(value: Any) -> str:
+    raw = str(value or "").strip().lower()
+    normalized = unicodedata.normalize("NFD", raw)
+    return "".join(ch for ch in normalized if unicodedata.category(ch) != "Mn")
+
+
+def _status_bucket(statut: Any) -> str:
+    normalized = _normalize_text(statut)
+
+    if "non realis" in normalized:
+        return "non_realisees"
+    if "non demarr" in normalized:
+        return "non_dem"
+    if "en cours" in normalized:
+        return "en_cours"
+    if "realis" in normalized:
+        return "realisees"
+    return "autre"
+
+
+def _risk_label(retard: int, realisees: int, en_cours: int) -> str:
+    if retard >= 2:
+        return "Eleve"
+    if retard == 1:
+        return "Modere"
+    if realisees == 0 and en_cours == 0:
+        return "Attente"
+    return "Normal"
+
+
+def _risk_level(label: str) -> str:
+    if label == "Eleve":
+        return "high"
+    if label == "Modere":
+        return "medium"
+    if label == "Attente":
+        return "waiting"
+    return "normal"
 
 @router.get("/count")
 def count_taches(db: Session = Depends(get_db)):
@@ -149,6 +202,82 @@ def stack100_entites_statuts(
         params = {}
 
     return db.execute(sql, params).mappings().all()
+
+
+@router.get("/entites-summary")
+def entites_summary(
+    year: Optional[int] = Query(None, ge=2000),
+    month: Optional[int] = Query(None, ge=1, le=12),
+    db: Session = Depends(get_db),
+):
+    clauses = [
+        "date_fin IS NOT NULL",
+        "entites IS NOT NULL",
+        "TRIM(entites) <> ''",
+    ]
+    params: Dict[str, Any] = {}
+
+    if year is not None and month is not None:
+        clauses.append("YEAR(date_fin)=:y")
+        clauses.append("MONTH(date_fin)=:m")
+        params.update({"y": year, "m": month})
+
+    sql = text(f"""
+        SELECT
+            entites AS entite,
+            COALESCE(statut, '') AS statut,
+            DATE(date_fin) AS date_fin
+        FROM planification_taches
+        WHERE {' AND '.join(clauses)}
+    """)
+
+    rows = db.execute(sql, params).mappings().all()
+    by_entite: Dict[str, Dict[str, Any]] = {}
+
+    for row in rows:
+        entite = row["entite"]
+        if entite not in by_entite:
+            by_entite[entite] = {
+                "taches": 0,
+                "realisees": 0,
+                "en_cours": 0,
+                "non_dem": 0,
+                "retard": 0,
+                "non_realisees": 0,
+            }
+
+        item = by_entite[entite]
+        item["taches"] += 1
+
+        bucket = _status_bucket(row["statut"])
+        if bucket in item:
+            item[bucket] += 1
+
+        if bucket == "non_realisees":
+            item["retard"] += 1
+
+    out = []
+    for entite, item in by_entite.items():
+        taches = item["taches"]
+        realisees = item["realisees"]
+        completion = round((realisees / taches) * 100) if taches else 0
+        risque = _risk_label(item["retard"], realisees, item["en_cours"])
+
+        out.append({
+            "entite": entite,
+            "description": ENTITE_DESCRIPTIONS.get(entite, ""),
+            "taches": taches,
+            "completion": completion,
+            "realisees": realisees,
+            "en_cours": item["en_cours"],
+            "non_dem": item["non_dem"],
+            "retard": item["retard"],
+            "risque": risque,
+            "risque_level": _risk_level(risque),
+        })
+
+    out.sort(key=lambda r: (-r["taches"], _normalize_text(r["entite"])))
+    return out
 
 
 @router.get("/gantt")
