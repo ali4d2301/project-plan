@@ -20,7 +20,7 @@
 
 <script setup>
 import * as echarts from "echarts"
-import { ref, onMounted, onBeforeUnmount, watch } from "vue"
+import { ref, onMounted, onBeforeUnmount, watch, nextTick } from "vue"
 import { fetchWithRetry, getFetchErrorMessage } from "../utils/http"
 
 /* =======================
@@ -41,6 +41,7 @@ function apiBase() {
 const chartEl = ref(null)
 const cardRef = ref(null)
 let chart = null
+let resizeObserver = null
 
 const rows = ref([]) // [{ mois, statut, n }]
 const loading = ref(false)
@@ -53,7 +54,7 @@ async function toggleFullscreen() {
   if (!(document.fullscreenEnabled && el?.requestFullscreen)) {
     fullscreen.value = !fullscreen.value
     document.body.classList.toggle("fs-lock", fullscreen.value)
-    setTimeout(() => chart?.resize(), 50)
+    resizeChartSoon(true)
     return
   }
   try {
@@ -72,13 +73,23 @@ function syncFullscreen() {
   fullscreen.value = isFs
   if (isFs) document.body.classList.add("fs-lock")
   else document.body.classList.remove("fs-lock")
-  setTimeout(() => chart?.resize(), 50)
+  resizeChartSoon(true)
 }
 
 /* =======================
    Chart builder
 ======================= */
-function buildOption(data) {
+function buildOption(data, isFs = false, chartWidth = 800, chartHeight = 330) {
+  const base = Math.max(280, Math.min(chartWidth, chartHeight))
+  const fsBoost = isFs ? 1.22 : 1
+  const legendSize = clamp(Math.round(base * 0.042 * fsBoost), 12, 30)
+  const axisSize = clamp(Math.round(base * 0.036 * fsBoost), 12, 26)
+  const totalSize = clamp(Math.round(base * 0.05 * fsBoost), 16, 34)
+  const legendItemWidth = clamp(Math.round(legendSize * 1.6), 24, 46)
+  const legendItemHeight = clamp(Math.round(legendSize * 0.95), 14, 28)
+  const legendGap = clamp(Math.round(legendSize * 0.9), 10, 28)
+  const gridTop = isFs ? clamp(Math.round(legendSize * 3.6), 88, 132) : 46
+  const gridBottom = isFs ? clamp(Math.round(axisSize * 2.6), 56, 84) : 36
   const months = Array.from(new Set(data.map(r => r.mois)))
   const statuses = Array.from(new Set(data.map(r => r.statut)))
 
@@ -117,9 +128,10 @@ function buildOption(data) {
           label: {
             show: true,
             position: "top",
-            distance: 6,
+            distance: isFs ? 12 : 6,
             color: "#1f2937",
             fontWeight: 600,
+            fontSize: totalSize,
             formatter: (params) => {
               const value = totals[params.dataIndex] || 0
               return value ? value : ""
@@ -134,17 +146,30 @@ function buildOption(data) {
       trigger: "axis",
       axisPointer: { type: "shadow" },
     },
-    legend: { top: 10 },
+    legend: {
+      top: 10,
+      textStyle: {
+        fontSize: legendSize,
+        fontWeight: isFs ? 600 : 500,
+      },
+      itemWidth: isFs ? legendItemWidth : 24,
+      itemHeight: isFs ? legendItemHeight : 14,
+      itemGap: isFs ? legendGap : 10,
+    },
     grid: {
-      left: 40,
+      left: isFs ? 56 : 40,
       right: 20,
-      top: 46,
-      bottom: 36,
+      top: gridTop,
+      bottom: gridBottom,
       containLabel: true,
     },
     xAxis: {
       type: "category",
       data: months,
+      axisLabel: {
+        fontSize: axisSize,
+        margin: isFs ? 18 : 8,
+      },
       splitLine: { show: false },
     },
     yAxis: {
@@ -167,7 +192,9 @@ function buildOption(data) {
 function render() {
   if (!chartEl.value) return
   if (!chart) chart = echarts.init(chartEl.value)
-  chart.setOption(buildOption(rows.value), { notMerge: true })
+  const width = chartEl.value.clientWidth || 800
+  const height = chartEl.value.clientHeight || 330
+  chart.setOption(buildOption(rows.value, fullscreen.value, width, height), { notMerge: true })
 }
 
 /* =======================
@@ -194,7 +221,27 @@ async function load() {
    Lifecycle
 ======================= */
 function onResize() {
-  if (chart) chart.resize()
+  resizeChartSoon(true)
+}
+
+async function resizeChartSoon(reRender = false) {
+  await nextTick()
+  requestAnimationFrame(() => {
+    if (!chart || !chartEl.value) return
+    chart.resize({
+      width: chartEl.value.clientWidth,
+      height: chartEl.value.clientHeight,
+    })
+    if (reRender) {
+      requestAnimationFrame(() => {
+        render()
+      })
+    }
+  })
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value))
 }
 
 onMounted(async () => {
@@ -202,14 +249,23 @@ onMounted(async () => {
   render()
   window.addEventListener("resize", onResize)
   document.addEventListener("fullscreenchange", syncFullscreen)
+  if (typeof ResizeObserver !== "undefined" && chartEl.value) {
+    resizeObserver = new ResizeObserver(() => resizeChartSoon(true))
+    resizeObserver.observe(chartEl.value)
+  }
   syncFullscreen()
 })
 
 watch(rows, render)
+watch(fullscreen, () => {
+  resizeChartSoon(true)
+})
 
 onBeforeUnmount(() => {
   window.removeEventListener("resize", onResize)
   document.removeEventListener("fullscreenchange", syncFullscreen)
+  resizeObserver?.disconnect()
+  resizeObserver = null
   document.body.classList.remove("fs-lock")
   if (chart) {
     chart.dispose()
@@ -228,8 +284,8 @@ onBeforeUnmount(() => {
   position: fixed;
   inset: 0;
   z-index: 9999;
-  height: 100%;
-  width: 100%;
+  height: 100vh;
+  width: 100vw;
   border-radius: 0;
   border: none;
   padding: 16px;
@@ -240,8 +296,8 @@ onBeforeUnmount(() => {
 }
 .card.is-fullscreen .chart {
   flex: 1;
-  height: auto;
-  min-height: 0;
+  height: calc(100vh - 150px);
+  min-height: 420px;
 }
 .top {
   display: flex;
@@ -254,6 +310,10 @@ onBeforeUnmount(() => {
 .title { 
   margin:0; 
   font-weight:700; 
+}
+.card.is-fullscreen .title {
+  font-size: 42px;
+  line-height: 1.1;
 }
 .chart {
   height: 330px;
@@ -285,6 +345,10 @@ onBeforeUnmount(() => {
 .fullscreen-btn:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+.card.is-fullscreen .fullscreen-btn {
+  font-size: 18px;
+  padding: 10px 16px;
 }
 
 @media (max-width: 720px) {

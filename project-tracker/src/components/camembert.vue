@@ -16,7 +16,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch } from "vue"
+import { ref, onMounted, onBeforeUnmount, watch, nextTick } from "vue"
 import * as echarts from "echarts"
 import { fetchWithRetry, getFetchErrorMessage } from "../utils/http"
 
@@ -28,6 +28,7 @@ const props = defineProps({
 const chartEl = ref(null)
 const cardRef = ref(null)
 let chart = null
+let resizeObserver = null
 
 const loading = ref(false)
 const error = ref("")
@@ -40,7 +41,7 @@ async function toggleFullscreen() {
   if (!(document.fullscreenEnabled && el?.requestFullscreen)) {
     fullscreen.value = !fullscreen.value
     document.body.classList.toggle("fs-lock", fullscreen.value)
-    setTimeout(() => chart?.resize(), 50)
+    resizeChartSoon(true)
     return
   }
   try {
@@ -59,7 +60,7 @@ function syncFullscreen() {
   fullscreen.value = isFs
   if (isFs) document.body.classList.add("fs-lock")
   else document.body.classList.remove("fs-lock")
-  setTimeout(() => chart?.resize(), 50)
+  resizeChartSoon(true)
 }
 
 function apiBase() {
@@ -86,6 +87,19 @@ async function load() {
 function render() {
   if (!chartEl.value) return
   if (!chart) chart = echarts.init(chartEl.value)
+  const isFs = fullscreen.value
+  const width = chartEl.value.clientWidth || 800
+  const height = chartEl.value.clientHeight || 300
+  const base = Math.max(280, Math.min(width, height))
+  const fsBoost = isFs ? 1.22 : 1
+  const legendSize = clamp(Math.round(base * 0.042 * fsBoost), 12, 30)
+  const ringLabelSize = clamp(Math.round(base * 0.05 * fsBoost), 12, 38)
+  const totalSize = clamp(Math.round(base * 0.16 * fsBoost), 42, 110)
+  const totalLabelSize = clamp(Math.round(base * 0.07 * fsBoost), 18, 48)
+  const centerValueOffsetY = Math.round(-totalSize * 0.25)
+  const centerLabelOffsetY = Math.round(totalSize * 0.58)
+  const labelLineLength = clamp(Math.round(base * 0.045), 14, 34)
+  const labelLineLength2 = clamp(Math.round(base * 0.04), 12, 30)
 
   const data = (rows.value || []).map(r => ({
     name: r.label,
@@ -100,7 +114,17 @@ function render() {
         trigger: "item",
         formatter: "{b} : {c} tâches ({d}%)"
     },
-    legend: { top: 10, left: "center" },
+    legend: {
+      top: 10,
+      left: "center",
+      textStyle: {
+        fontSize: legendSize,
+        fontWeight: isFs ? 600 : 500,
+      },
+      itemWidth: isFs ? 34 : 24,
+      itemHeight: isFs ? 20 : 14,
+      itemGap: isFs ? 18 : 10,
+    },
     graphic: [
         {
             type: "group",
@@ -112,10 +136,10 @@ function render() {
                 {
                     type: "text",
                     x: 0,
-                    y: -10,
+                    y: centerValueOffsetY,
                     style: {
                         text: `${total}`,
-                        font: "700 42px sans-serif",
+                        font: `700 ${totalSize}px "Space Grotesk", "Segoe UI", Tahoma, sans-serif`,
                         fill: "#111827",
                         textAlign: "center",
                         textVerticalAlign: "middle"
@@ -124,10 +148,10 @@ function render() {
                 {
                     type: "text",
                     x: 0,
-                    y: 22,
+                    y: centerLabelOffsetY,
                     style: {
                         text: `${totalLabel}`,
-                        font: "500 18px sans-serif",
+                        font: `500 ${totalLabelSize}px "Space Grotesk", "Segoe UI", Tahoma, sans-serif`,
                         fill: "#6b7280",
                         textAlign: "center",
                         textVerticalAlign: "middle"
@@ -144,13 +168,14 @@ function render() {
             data,
             avoidLabelOverlap: true,
             labelLayout: { hideOverlap: true },
-            labelLine: { length: 14, length2: 12 },
+            labelLine: { length: labelLineLength, length2: labelLineLength2 },
             label: {
                 //show: false, // 👈 Cacher les étiquettes
                 position: "outside", // 👈 Déplacer le texte à l’extérieur
                 formatter: "{b}\n{d}%",
-                fontSize: 12,
-                lineHeight: 16
+                fontSize: ringLabelSize,
+                lineHeight: Math.round(ringLabelSize * 1.35),
+                fontWeight: isFs ? 600 : 500
                 //formatter: "{b}\n{c} tâches ({d}%)"
             }
         }
@@ -158,8 +183,28 @@ function render() {
   })
 }
 
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value))
+}
+
 function onResize() {
-  chart?.resize()
+  resizeChartSoon(true)
+}
+
+async function resizeChartSoon(reRender = false) {
+  await nextTick()
+  requestAnimationFrame(() => {
+    if (!chart || !chartEl.value) return
+    chart.resize({
+      width: chartEl.value.clientWidth,
+      height: chartEl.value.clientHeight,
+    })
+    if (reRender) {
+      requestAnimationFrame(() => {
+        render()
+      })
+    }
+  })
 }
 
 onMounted(async () => {
@@ -167,6 +212,10 @@ onMounted(async () => {
   render()
   window.addEventListener("resize", onResize)
   document.addEventListener("fullscreenchange", syncFullscreen)
+  if (typeof ResizeObserver !== "undefined" && chartEl.value) {
+    resizeObserver = new ResizeObserver(() => resizeChartSoon(true))
+    resizeObserver.observe(chartEl.value)
+  }
   syncFullscreen()
 })
 
@@ -175,9 +224,15 @@ watch(() => props.endpoint, async () => {
   render()
 })
 
+watch(fullscreen, () => {
+  resizeChartSoon(true)
+})
+
 onBeforeUnmount(() => {
   window.removeEventListener("resize", onResize)
   document.removeEventListener("fullscreenchange", syncFullscreen)
+  resizeObserver?.disconnect()
+  resizeObserver = null
   document.body.classList.remove("fs-lock")
   chart?.dispose()
   chart = null
@@ -190,8 +245,8 @@ onBeforeUnmount(() => {
   position: fixed;
   inset: 0;
   z-index: 9999;
-  height: 100%;
-  width: 100%;
+  height: 100vh;
+  width: 100vw;
   border-radius: 0;
   padding: 16px;
   display: flex;
@@ -201,12 +256,13 @@ onBeforeUnmount(() => {
 }
 .card.is-fullscreen .chart {
   flex: 1;
-  height: auto;
-  min-height: 0;
+  height: calc(100vh - 140px);
+  min-height: 420px;
 }
 .top { display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .top-actions { display:flex; align-items:center; gap:8px; }
 .title { margin:0; font-weight:700; }
+.card.is-fullscreen .title { font-size: 42px; line-height: 1.1; }
 .hint { opacity:.7; }
 .error { color:#b00020; }
 .chart { width:100%; height:300px; }
@@ -228,6 +284,10 @@ onBeforeUnmount(() => {
 .fullscreen-btn:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+.card.is-fullscreen .fullscreen-btn {
+  font-size: 18px;
+  padding: 10px 16px;
 }
 
 @media (max-width: 720px) {
